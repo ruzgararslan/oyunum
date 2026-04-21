@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pro Atasözü ve Deyim Bulmaca</title>
+<style>
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: white;
+  text-align: center;
+  margin: 0;
+  padding: 10px;
+}
+.container { max-width: 700px; margin: auto; position: relative; }
+.game-header { background: #00c853; color: #1a1a2e; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+.game-header h1 { margin: 0; font-size: 22px; text-transform: uppercase; }
+
+/* QR KOD ALANI - TÜM CİHAZLAR İÇİN SABİTLENDİ */
+#qr-container {
+  position: absolute;
+  top: 10px;
+  right: -130px;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  width: 110px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  display: block !important;
+}
+#qr-container p { color: black; font-size: 10px; margin: 5px 0 0 0; font-weight: bold; }
+#qrcode-img { width: 100px; height: 100px; display: block; margin: auto; border:none; }
+
+@media (max-width: 950px) {
+  #qr-container { position: static; margin: 15px auto; width: 110px; }
+}
+
+.card { background: #232931; padding: 25px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.4); }
+input { padding: 12px; margin: 5px; border-radius: 5px; border: none; width: 80%; font-size: 16px; }
+button { padding: 12px 20px; margin: 10px 5px; border: none; border-radius: 5px; background: #4ecca3; color: #1a1a2e; font-weight: bold; cursor: pointer; }
+
+#letters { display: grid; grid-template-columns: repeat(auto-fit, minmax(45px, 1fr)); gap: 5px; margin: 20px 0; }
+.letter-btn { padding: 12px 5px; background: #393e46; color: white; border: 1px solid #4ecca3; border-radius: 5px; font-size: 16px; }
+.correct { background: #00c853 !important; }
+.wrong { background: #d50000 !important; }
+
+.word-box { font-size: 24px; letter-spacing: 3px; margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; min-height: 40px; }
+#meaning { color: #f9ed69; min-height: 50px; font-size: 18px; margin-bottom: 15px; }
+.hidden { display: none; }
+.stats { display: flex; justify-content: space-around; background: #1a1a2e; padding: 10px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div id="qr-container">
+        <img id="qrcode-img" src="" alt="QR">
+        <p>TELEFONLA OYNA</p>
+    </div>
+
+    <div id="auth" class="card">
+        <div class="game-header"><h1>GİRİŞ YAP</h1></div>
+        <input id="user" placeholder="Kullanıcı Adı"><br>
+        <input id="pass" type="password" placeholder="Şifre"><br>
+        <button onclick="auth()">OYUNA BAŞLA</button>
+    </div>
+
+    <div id="game" class="hidden">
+        <div class="game-header"><h1>ATASÖZÜ VE DEYİM BULMACA</h1></div>
+        <div id="meaning"></div>
+        <div id="word" class="word-box"></div>
+        <div id="letters"></div>
+        <div class="stats">
+            <p>Puan: <span id="score" style="color:#00c853">0</span></p>
+            <p>Can: <span id="lives" style="color:#d50000">3</span></p>
+            <p>Süre: <span id="time">60</span></p>
+        </div>
+    </div>
+
+    <div id="over" class="hidden card">
+        <div class="game-header"><h1>OYUN BİTTİ</h1></div>
+        <h2>Skor: <span id="final"></span></h2>
+        <ul id="leader" style="list-style:none; padding:0;"></ul>
+        <button onclick="location.reload()">TEKRAR OYNA</button>
+    </div>
+</div>
+
+<script>
+// QR KODU OLUŞTURMA (Sayfa açılır açılmaz çalışır)
+(function() {
+    var url = window.location.href;
+    // Google QR API kullanarak resim oluşturma
+    document.getElementById("qrcode-img").src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(url);
+})();
+
+let users = JSON.parse(localStorage.getItem("users")) || {};
+let currentUser = null;
+
+function auth(){
+    let u=document.getElementById("user").value;
+    let p=document.getElementById("pass").value;
+    if(!u || !p) return alert("Eksik bilgi!");
+    if(users[u] && users[u].pass !== p) return alert("Şifre yanlış!");
+    if(!users[u]) users[u] = {pass:p, best:0};
+    currentUser = u;
+    localStorage.setItem("users", JSON.stringify(users));
+    document.getElementById("auth").className="hidden";
+    document.getElementById("game").className="";
+    startGame();
+}
+
+const data = [
+    {word:"ATEŞ PAHALISI", meaning:"DEYİM: Bir şeyin olması gerekenden çok çok pahalı olması."},
+    {word:"DİLİNDE TÜY BİTMEK", meaning:"DEYİM: Bir şeyi anlatmaktan yorulmak, usanmak."},
+    {word:"GÜLME KOMŞUNA GELİR BAŞINA", meaning:"ATASÖZÜ: Başkasının kötü durumuyla alay etme."},
+    {word:"DAMLAYA DAMLAYA GÖL OLUR", meaning:"ATASÖZÜ: Küçük birikimlerin önemini anlatır."},
+    {word:"AYAĞINI YORGANINA GÖRE UZAT", meaning:"ATASÖZÜ: Harcamalarını gelirine uydur."},
+    {word:"GÖZDEN DÜŞMEK", meaning:"DEYİM: İlgi ve sevgiyi kaybetmek."},
+    {word:"İPE UN SERMEK", meaning:"DEYİM: Bahane uydurarak işten kaçmak."},
+    {word:"TATLI DİL YILANI DELİĞİNDEN ÇIKARIR", meaning:"ATASÖZÜ: Güzel sözle herkes ikna edilebilir."}
+];
+
+let current, guessed=[], score=0, lives=3, time=60, timer;
+
+function startGame(){
+    score=0; lives=3;
+    nextWord();
+}
+
+function nextWord(){
+    guessed=[]; time=60;
+    current = data[Math.floor(Math.random()*data.length)];
+    document.getElementById("meaning").innerText = current.meaning;
+    drawWord();
+    drawLetters();
+    startTimer();
+}
+
+function startTimer(){
+    clearInterval(timer);
+    timer=setInterval(()=>{
+        time--;
+        document.getElementById("time").innerText=time;
+        if(time<=0) loseLife();
+    },1000);
+}
+
+function drawWord(){
+    let res = "";
+    current.word.split("").forEach(l => {
+        if(l === " ") res += " &nbsp; ";
+        else res += guessed.includes(l) ? l : "_";
+    });
+    document.getElementById("word").innerHTML = res;
+}
+
+function drawLetters(){
+    let div = document.getElementById("letters");
+    div.innerHTML = "";
+    "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ".split("").forEach(l=>{
+        let b = document.createElement("button");
+        b.innerText = l;
+        b.className = "letter-btn";
+        b.onclick = () => {
+            if(current.word.includes(l)){
+                guessed.push(l);
+                b.classList.add("correct");
+                drawWord();
+                if(!document.getElementById("word").innerText.replace(/&nbsp;/g, " ").includes("_")){
+                    score += 20;
+                    document.getElementById("score").innerText = score;
+                    setTimeout(nextWord, 500);
+                }
+            } else {
+                b.classList.add("wrong");
+                b.disabled = true;
+                // 6 YANLIŞ HARF = 1 CAN GİDER
+                if(document.querySelectorAll(".wrong").length >= 6) loseLife();
+            }
+        };
+        div.appendChild(b);
+    });
+}
+
+function loseLife(){
+    lives--;
+    document.getElementById("lives").innerText = lives;
+    alert("Doğru cevap: " + current.word);
+    if(lives <= 0) endGame();
+    else nextWord();
+}
+
+function endGame(){
+    clearInterval(timer);
+    document.getElementById("game").className="hidden";
+    document.getElementById("over").className="card";
+    document.getElementById("final").innerText = score;
+    if(score > users[currentUser].best) users[currentUser].best = score;
+    localStorage.setItem("users", JSON.stringify(users));
+    let arr = Object.entries(users).sort((a,b)=>b[1].best - a[1].best);
+    document.getElementById("leader").innerHTML = arr.slice(0,5).map(u => `<li>${u[0]}: ${u[1].best}</li>`).join("");
+}
+</script>
+</body>
+</html>
